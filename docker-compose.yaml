@@ -1,0 +1,60 @@
+version: '3.7'
+services:
+    interface:
+        build: interface
+        ports:
+            - "80:5000"
+
+    hotel:
+        build: microservice
+        environment:
+            - HOSTNAME=hotel-service
+
+    flight:
+        build: microservice
+        environment:
+            - HOSTNAME=flight-service
+    car-rental:
+        build: microservice
+        environment:
+            - HOSTNAME=car-rental-service
+
+    postgres:
+        image: postgres:9.6
+        environment:
+            - POSTGRES_USER=airflow
+            - POSTGRES_PASSWORD=airflow
+            - POSTGRES_DB=airflow
+        logging:
+            options:
+                max-size: 10m
+                max-file: "3"
+
+    airflow:
+        image: puckel/docker-airflow:1.10.9
+        restart: always
+        depends_on:
+            - postgres
+        environment:
+            - LOAD_EX=n
+            - EXECUTOR=Local
+            - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=False
+            - AIRFLOW_CONN_INTERFACE_SERVICE=http://interface:5000/
+            - AIRFLOW_CONN_HOTEL_SERVICE=http://hotel/
+            - AIRFLOW_CONN_FLIGHT_SERVICE=http://flight/
+            - AIRFLOW_CONN_CAR_RENTAL_SERVICE=http://car-rental/
+        logging:
+            options:
+                max-size: 10m
+                max-file: "3"
+        volumes:
+            - ./dags:/usr/local/airflow/dags
+            - ./requirements.txt:/requirements.txt
+        ports:
+            - "8080:8080"
+        command: webserver
+        healthcheck:
+            test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
+            interval: 30s
+            timeout: 30s
+            retries: 3
